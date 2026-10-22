@@ -1,0 +1,31 @@
+{
+  "keywords": {
+    "区": "区",
+    "这么强": "！？强强？！",
+    "这么弱": "！？弱弱？！",
+    "大肥鱼": "？你再说一遍试试",
+    "小鲸鱼": "？叫我干嘛"
+  },
+  "bubbles": {
+    "enabled": false,
+    "hours_beijing": [
+      10,
+      23
+    ],
+    "interval_seconds": [
+      5400,
+      10800
+    ],
+    "max_per_group_day": 3,
+    "quiet_seconds": 60,
+    "reply_pause_seconds": 600,
+    "texts": [
+      "？",
+      "6",
+      "乐",
+      "冒泡",
+      "摸鱼",
+      "好饿"
+    ]
+  }
+}

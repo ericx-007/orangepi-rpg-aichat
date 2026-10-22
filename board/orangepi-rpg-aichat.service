@@ -1,0 +1,23 @@
+[Unit]
+Description=Orange Pi RPG local GGUF chat API
+After=network.target
+
+[Service]
+Type=simple
+User=orangepi-chat
+Group=orangepi-chat
+WorkingDirectory=/opt/orangepi-rpg-aichat/app
+EnvironmentFile=/opt/orangepi-rpg-aichat/config/active-model.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/bin/bash /opt/orangepi-rpg-aichat/scripts/serve.sh
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=30
+KillMode=control-group
+UMask=0027
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

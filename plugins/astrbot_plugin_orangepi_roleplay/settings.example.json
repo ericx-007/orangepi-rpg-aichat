@@ -1,0 +1,7 @@
+{
+  "bot_qq": "",
+  "owner_qq": "",
+  "allowed_groups": [],
+  "platform_id": "qq-local",
+  "health_url": "http://127.0.0.1:8000/health"
+}

@@ -1,0 +1,11 @@
+{
+  "bot_qq": "",
+  "owner_qq": "",
+  "allowed_groups": [],
+  "platform_id": "qq-local",
+  "health_url": "http://127.0.0.1:8000/health",
+  "api_base": "http://127.0.0.1:8000/v1",
+  "max_tokens": 160,
+  "request_timeout": 600,
+  "enable_bubbles": false
+}

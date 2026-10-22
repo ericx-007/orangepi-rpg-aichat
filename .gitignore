@@ -1,0 +1,36 @@
+# Local deployment and credentials
+config/*.local.*
+plugins/**/settings.local.json
+qq-runtime/
+data/
+.ssh/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_ed25519*
+id_rsa*
+# Runtime data and large artifacts
+logs/
+models/
+downloads/
+*.gguf
+*.safetensors
+*.bin
+*.onnx
+*.zip
+*.tar.gz
+*.partial
+*.db
+*.sqlite*
+*.log
+*.pid
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.DS_Store
+Thumbs.db

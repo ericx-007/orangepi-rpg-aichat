@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>橙派 · 本地对话</title>
+  <style>
+    :root{--bg:#111512;--panel:#1a201c;--line:#303a32;--text:#edf2ec;--muted:#a0b09f;--accent:#c2ed91;--danger:#ffb4a8}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.7 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+    button,textarea,select,input{font:inherit}button,select{cursor:pointer}button:disabled{cursor:default;opacity:.45}
+    button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+    .shell{max-width:1000px;margin:auto;padding:0 30px;min-height:100dvh;display:flex;flex-direction:column}
+    header{padding:24px 0 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .brand{display:flex;align-items:center;gap:13px}.mark{width:36px;height:36px;background:var(--accent);border-radius:11px;color:var(--bg);display:grid;place-items:center;font-size:23px;font-weight:700}
+    .name{font-size:17px;font-weight:650;letter-spacing:.5px}.sub{color:var(--muted);font-size:12px}.status{font-size:12px;display:flex;gap:7px;align-items:center;color:var(--muted)}
+    .dot{height:7px;width:7px;border-radius:50%;background:#b6a566}.dot.ready{background:var(--accent)}.dot.error{background:var(--danger)}
+    main{flex:1;padding:30px 0 14px}.intro{padding:55px 0 35px}.eyebrow{color:var(--accent);font-size:12px;letter-spacing:2px}.intro h1{font-size:clamp(29px,5vw,43px);line-height:1.35;font-weight:550;letter-spacing:-1px;margin:15px 0}.intro p{color:var(--muted);max-width:600px;margin:0}
+    .suggestions{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}.suggestions button,.quiet{background:transparent;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:8px 12px}.suggestions button:hover,.quiet:hover{border-color:var(--muted);color:var(--text)}
+    .message{margin:0 0 27px}.role{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px}.role i{width:5px;height:5px;background:var(--muted);border-radius:2px}.assistant .role{color:var(--accent)}.assistant .role i{background:var(--accent)}
+    .content{white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px;line-height:1.85}.user .content{background:var(--panel);border:1px solid var(--line);padding:13px 18px;border-radius:10px}.assistant .content{padding:0 1px}.content:empty::after{content:"正在处理…";color:var(--muted);animation:pulse 1.5s infinite}
+    .metrics{font-size:11px;color:var(--muted);margin-top:8px}.error-text{color:var(--danger)}
+    .composer{position:sticky;bottom:0;padding:18px 0 20px;background:linear-gradient(transparent,var(--bg) 12%)}
+    .input-box{border:1px solid #526348;background:var(--panel);border-radius:14px;overflow:hidden;box-shadow:0 6px 30px #0003}.input-box:focus-within{border-color:var(--accent)}
+    textarea{display:block;resize:vertical;min-height:90px;max-height:240px;width:100%;padding:16px 18px 8px;background:transparent;color:var(--text);border:0;outline:none!important;line-height:1.6}textarea::placeholder{color:#798977}
+    .toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 12px 12px}.options{display:flex;flex-wrap:wrap;align-items:center;gap:12px;color:var(--muted);font-size:12px}.options label{display:flex;gap:5px;align-items:center}input[type=checkbox]{accent-color:var(--accent)}
+    select{background:var(--panel);border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:3px}.send{border:0;background:var(--accent);color:#192314;border-radius:8px;font-size:13px;font-weight:650;min-width:83px;padding:9px 15px}.send.stop{background:#513b35;color:var(--danger)}
+    .foot{display:flex;justify-content:space-between;gap:12px;color:var(--muted);font-size:11px;padding-top:9px}.foot .quiet{border:0;padding:0;font-size:11px}.notice{min-height:24px;color:var(--danger);font-size:12px;padding:2px 3px}
+    @keyframes pulse{50%{opacity:.4}}@media(max-width:600px){.shell{padding:0 18px}header{padding-top:18px}.intro{padding-top:35px}.options{gap:6px}.toolbar{align-items:flex-end}.options label{font-size:11px}.foot{font-size:10px}.sub{font-size:10px}.status{font-size:11px}.message{margin-bottom:22px}}
+  </style>
+</head>
+<body>
+<div class="shell">
+  <header>
+    <div class="brand"><div class="mark" aria-hidden="true">橙</div><div><div class="name">橙派 · 本地对话</div><div class="sub" id="modelSubtitle">本地模型 · Ascend 310B1</div></div></div>
+    <div class="status" role="status"><span class="dot" id="dot"></span><span id="status">正在连接</span></div>
+  </header>
+  <main>
+    <section class="intro" id="intro"><div class="eyebrow">YOUR LOCAL MODEL</div><h1>把问题，交给桌上的这块板。</h1><p>试试中文问答，或者写一段代码。模型在香橙派本地运行。</p>
+      <div class="suggestions"><button type="button">用通俗的语言解释什么是大语言模型</button><button type="button">写一个 Python 脚本，统计文件夹里的文件大小</button><button type="button">给我一道有趣的逻辑题</button></div>
+    </section>
+    <section id="messages" aria-label="对话记录" aria-live="off"></section>
+  </main>
+  <form id="form" class="composer">
+    <div class="notice" id="notice" role="alert"></div>
+    <div class="input-box">
+      <textarea id="prompt" aria-label="输入消息" placeholder="输入你的问题…" maxlength="16000" rows="2"></textarea>
+      <div class="toolbar"><div class="options"><label><input type="checkbox" id="thinking">思考模式</label><label>回答长度<select id="maxTokens"><option value="128">128 tokens</option><option value="256" selected>256 tokens</option><option value="512">512 tokens</option><option value="1024">1024 tokens</option></select></label></div><button id="send" class="send" type="submit" disabled>发送 ↑</button></div>
+    </div>
+    <div class="foot"><span id="footnote">上下文 4096 tokens · Enter 发送，Shift + Enter 换行</span><button type="button" class="quiet" id="clear">清空历史</button></div>
+  </form>
+</div>
+<script>
+  const $=id=>document.getElementById(id);
+  let history=[],ready=false,running=false,controller=null,thinkingSupported=true;
+  try{const saved=JSON.parse(localStorage.getItem('orangepi-chat-v1')||'[]');if(Array.isArray(saved))history=saved.filter(m=>m&&['user','assistant'].includes(m.role)&&typeof m.content==='string').slice(-40)}catch{}
+  function addMessage(role,text){const row=document.createElement('article');row.className='message '+role;const label=document.createElement('div');label.className='role';const icon=document.createElement('i');label.append(icon,document.createTextNode(role==='user'?'你':'本地助手'));const content=document.createElement('div');content.className='content';content.textContent=text;row.append(label,content);$('messages').append(row);return{row,content}}
+  function render(){ $('messages').replaceChildren();history.forEach(m=>addMessage(m.role,m.content));$('intro').hidden=history.length>0 }
+  function save(){try{localStorage.setItem('orangepi-chat-v1',JSON.stringify(history.slice(-40)))}catch{}}
+  function scroll(){window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'})}
+  function buttons(){ $('send').disabled=!running&&!ready;$('send').textContent=running?'停止 ■':'发送 ↑';$('send').classList.toggle('stop',running);$('clear').disabled=running;$('thinking').disabled=running||!thinkingSupported;$('maxTokens').disabled=running }
+  async function health(){try{const response=await fetch('/health',{cache:'no-store'});if(!response.ok)throw Error();const data=await response.json();thinkingSupported=data.thinking_supported!==false;if(!thinkingSupported)$('thinking').checked=false;$('thinking').title=thinkingSupported?'':'当前模型没有可切换的思考模式';$('modelSubtitle').textContent=`${data.model_label||data.model} · ${data.precision||'FP16'} · ${(data.backend||'').includes('CPU')?'ARM CPU':'Ascend 310B1'}`;ready=data.status==='ready';$('status').textContent=ready?(data.busy?'正在生成':'模型已就绪'):(data.status==='error'?'加载失败':'开机自动加载中');$('footnote').textContent=data.status==='loading'?'模型正在自动加载，冷启动可能需要数分钟。':`上下文 ${data.context_length||4096} tokens · Enter 发送，Shift + Enter 换行`;$('dot').className='dot '+(ready?'ready':data.status==='error'?'error':'');if(data.error&&!running)$('notice').textContent='模型加载失败，请查看服务日志。';buttons()}catch{ready=false;$('status').textContent='等待连接恢复';$('dot').className='dot error';buttons()}}
+  $('form').addEventListener('submit',async event=>{event.preventDefault();if(running){controller?.abort();return}const prompt=$('prompt').value.trim();if(!prompt||!ready)return;
+    running=true;buttons();$('notice').textContent='';$('intro').hidden=true;$('prompt').value='';const previous=history.slice();history.push({role:'user',content:prompt});addMessage('user',prompt);const assistant=addMessage('assistant','');scroll();controller=new AbortController();let answer='',completed=false;
+    try{const response=await fetch('/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal,body:JSON.stringify({model:'local',messages:history,max_tokens:Number($('maxTokens').value),stream:true,chat_template_kwargs:{enable_thinking:$('thinking').checked}})});
+      if(!response.ok){let error;try{error=await response.json()}catch{}throw Error(typeof error?.detail==='string'?error.detail:'请求失败，HTTP '+response.status)}
+      const reader=response.body.getReader(),decoder=new TextDecoder();let buffer='';
+      while(true){const{value,done}=await reader.read();if(done)break;buffer+=decoder.decode(value,{stream:true});const parts=buffer.split('\n\n');buffer=parts.pop();for(const part of parts){for(const line of part.split('\n')){if(!line.startsWith('data: '))continue;const raw=line.slice(6);if(raw==='[DONE]'){completed=true;continue}const data=JSON.parse(raw);if(data.error)throw Error(data.error.message);const text=data.choices?.[0]?.delta?.content;if(text){answer+=text;assistant.content.textContent=answer;if(window.innerHeight+window.scrollY>document.body.scrollHeight-250)scroll()}if(data.timings){const t=data.timings;const metrics=document.createElement('div');metrics.className='metrics';metrics.textContent=`首 token ${t.first_token_seconds??'—'}s · 生成 ${t.decode_tokens_per_second??'—'} tokens/s · ${t.completion_tokens} tokens`+(t.finish_reason==='length'?' · 已达输出长度上限':'');assistant.row.append(metrics)}}}}
+      if(!completed)throw Error('连接提前结束，请重试。');history.push({role:'assistant',content:answer});save();
+    }catch(error){if(error.name==='AbortError'){assistant.content.textContent=answer||'已停止';const note=document.createElement('div');note.className='metrics';note.textContent='已停止生成';assistant.row.append(note);if(answer){history.push({role:'assistant',content:answer});save()}else{history=previous}}else{$('notice').textContent=error.message;assistant.content.textContent=answer||'回答未完成';assistant.content.classList.add('error-text');history=previous;$('prompt').value=prompt}}
+    finally{running=false;controller=null;buttons();health();$('prompt').focus()}
+  });
+  $('prompt').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();if(!running)$('form').requestSubmit()}});
+  $('clear').addEventListener('click',()=>{history=[];save();render();$('notice').textContent='';$('prompt').focus()});
+  document.querySelectorAll('.suggestions button').forEach(button=>button.addEventListener('click',()=>{$('prompt').value=button.textContent;$('prompt').focus()}));
+  render();health();setInterval(health,5000);
+</script>
+</body>
+</html>
