@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "mode": "prerecorded",
+  "attribution": "请填写素材作者、来源网址和许可信息",
+  "clips": [
+    {
+      "file": "sample.wav",
+      "text": "请填写这段录音实际说的话",
+      "seconds": 6.0,
+      "bubble": true,
+      "triggers": ["摸鱼", "你在干嘛"]
+    }
+  ]
+}

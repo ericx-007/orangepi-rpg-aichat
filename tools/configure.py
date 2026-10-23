@@ -91,7 +91,7 @@ def main():
     shutil.copytree(ROOT / 'plugins/astrbot_plugin_orangepi_roleplay', plugin, dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns('__pycache__', '*.pyc', 'settings.local.json'))
     settings = {key: deployment[key] for key in ['bot_qq', 'owner_qq', 'allowed_groups', 'platform_id', 'health_url']}
-    settings.update({key: deployment.get(key, False) is True for key in ['enable_vision', 'enable_passive', 'enable_stickers']})
+    settings.update({key: deployment.get(key, False) is True for key in ['enable_vision', 'enable_passive', 'enable_stickers', 'enable_voice']})
     (plugin / 'settings.local.json').write_text(json.dumps(settings, indent=2), encoding='utf-8')
     activities = json.loads((plugin / 'activities.json').read_text(encoding='utf-8'))
     activities['bubbles']['enabled'] = bool(deployment.get('enable_bubbles', False))

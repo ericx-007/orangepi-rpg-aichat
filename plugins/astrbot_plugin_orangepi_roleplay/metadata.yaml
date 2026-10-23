@@ -2,7 +2,7 @@ name: orangepi_roleplay
 display_name: 小鲸鱼与群聊节流
 desc: 指定群低频接话、识图和社区表情包，保留私聊身份隔离
 author: ericx-007
-version: 1.3.0
+version: 1.4.0
 astrbot_version: ">=4.29,<5"
 support_platforms:
   - aiocqhttp

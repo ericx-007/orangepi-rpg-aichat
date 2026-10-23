@@ -78,6 +78,7 @@ class ActivitiesTests(unittest.IsolatedAsyncioTestCase):
             return {'message_id':123}
         main=module.Main.__new__(module.Main)
         main.activities=self.activity;main.last_chat={}
+        main.voice_for=lambda _:types.SimpleNamespace(pick=lambda *a,**k:None)
         main.social_for=lambda _:types.SimpleNamespace(sticker=lambda *a,**k:None)
         main.context=types.SimpleNamespace(get_platform_inst=lambda _:types.SimpleNamespace(bot=types.SimpleNamespace(call_action=action)))
         main.policies={'100000001':module.MessagePolicy(clock=lambda:self.now)}
@@ -105,5 +106,27 @@ class ActivitiesTests(unittest.IsolatedAsyncioTestCase):
             main.model_state=lambda:{'status':'ready','busy':False}
             await main.try_bubble()
         self.assertTrue(all(v['count']==0 for v in self.activity.state.values()))
+
+    async def test_voice_bubble_uses_one_record_action_and_existing_schedule(self):
+        self.make_due();actions=[];receipts=[]
+        async def action(name,**kwargs):
+            if name=='get_login_info':return {'user_id':100000001}
+            if name=='get_group_list':return [{'group_id':100000003}]
+            self.assertEqual(name,'send_group_msg')
+            self.assertEqual(kwargs['self_id'],100000001)
+            self.assertEqual(kwargs['group_id'],100000003)
+            self.assertEqual([p['type'] for p in kwargs['message']],['record'])
+            self.assertEqual(self.activity.state['100000003']['status'],'pending')
+            actions.append(kwargs);return {'message_id':123}
+        main=module.Main.__new__(module.Main);main.activities=self.activity;main.last_chat={}
+        main.context=types.SimpleNamespace(get_platform_inst=lambda _:types.SimpleNamespace(bot=types.SimpleNamespace(call_action=action)))
+        main.policies={'100000001':module.MessagePolicy(clock=lambda:self.now)}
+        main.model_state=lambda:{'status':'ready','busy':False}
+        main.voice_for=lambda _:types.SimpleNamespace(pick=lambda *a,**k:{'path':self.path.resolve().with_suffix('.wav'),'credit':None},receipt=lambda *a:receipts.append(a))
+        main.social_for=lambda _:(_ for _ in ()).throw(AssertionError('voice also reserved a sticker'))
+        with patch.object(module.time,'time',lambda:self.now):
+            await main.try_bubble();await main.try_bubble()
+        self.assertEqual(len(actions),1)
+        self.assertEqual(receipts,[('100000003','sent')])
 
 if __name__=='__main__':unittest.main(verbosity=2)

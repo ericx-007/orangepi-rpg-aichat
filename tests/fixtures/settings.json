@@ -5,5 +5,6 @@
   "platform_id": "qq-local",
   "enable_passive": true,
   "enable_vision": true,
-  "enable_stickers": true
+  "enable_stickers": true,
+  "enable_voice": true
 }

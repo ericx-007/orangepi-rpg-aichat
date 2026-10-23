@@ -10,5 +10,6 @@
   "enable_bubbles": false,
   "enable_vision": false,
   "enable_passive": false,
-  "enable_stickers": false
+  "enable_stickers": false,
+  "enable_voice": false
 }

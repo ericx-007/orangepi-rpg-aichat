@@ -280,4 +280,24 @@ class GuardTests(unittest.IsolatedAsyncioTestCase):
         event.send.assert_awaited_once()
         self.assertIsNone(event.get_extra('orangepi_image'))
 
+    async def test_short_voice_replaces_reply_and_never_calls_model(self):
+        event=await self.event(text='来句语音')
+        event.message_obj.group_id='100000003';event.send=AsyncMock()
+        from astrbot.api.message_components import At
+        event.message_obj.message.insert(0,At(qq='999800'))
+        controller=types.SimpleNamespace(pick=lambda *a,**k:{'path':self.main.data/'sample.wav','credit':None},receipt=lambda *a:None)
+        self.main.voice_for=lambda _:controller
+        self.main.model_state=lambda:(_ for _ in ()).throw(AssertionError('voice touched model'))
+        self.assertTrue(self.main.check_guard(event))
+        await self.main.guard(event)
+        event.send.assert_awaited_once()
+        self.assertEqual(event.send.call_args.args[0].chain[0].type.value,'Record')
+        self.assertFalse(event.call_llm)
+        self.assertTrue(event.is_stopped())
+
+    async def test_voice_request_does_not_bypass_private_authorization(self):
+        event=await self.event(text='来句语音');event.message_obj.sender.user_id='999'
+        self.assertFalse(self.main.check_guard(event))
+        self.assertEqual(event.get_extra('orangepi_policy_reason'),'private_not_allowed')
+
 if __name__=='__main__':unittest.main(verbosity=2)

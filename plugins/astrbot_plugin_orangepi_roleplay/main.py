@@ -9,7 +9,7 @@ from pathlib import Path
 from sys import maxsize
 
 from astrbot.api.event import AstrMessageEvent, filter
-from astrbot.api.message_components import At, Image, Plain, Reply
+from astrbot.api.message_components import At, Image, Plain, Record, Reply
 from astrbot.api.provider import ProviderRequest
 from astrbot.api.star import Context, Star
 from astrbot.core.star.filter.custom_filter import CustomFilter
@@ -19,6 +19,8 @@ from .policy import GROUPS, OWNER, MessagePolicy, prompt_for
 from .settings import BOT_ID, HEALTH_URL, PLATFORM_ID, VISION_ENABLED
 from .social import Social
 from .vision import prepare as prepare_image
+from .voice import COMMANDS as VOICE_COMMANDS
+from .voice import VoicePack
 from .web_search import COMMANDS, WebSearch, query_from
 
 _INSTANCE = None
@@ -110,6 +112,16 @@ class Main(Star):
                 pass
             await asyncio.sleep(60)
 
+    def voice_for(self, bot):
+        if not hasattr(self, "voices"):
+            self.voices = {}
+        if bot not in self.voices:
+            name = (
+                "voice-state.json" if bot == BOT_ID else "voice-state-" + bot + ".json"
+            )
+            self.voices[bot] = VoicePack(self.data / "voice-pack", self.data / name)
+        return self.voices[bot]
+
     async def try_bubble(self):
         due = self.activities.due()
         if not due:
@@ -151,13 +163,33 @@ class Main(Star):
             text = self.activities.reserve(group)
             if text is None:
                 continue
-            sticker = self.social_for(BOT_ID).sticker(group, bubble=True)
+            voice = self.voice_for(BOT_ID).pick(group, bubble=True)
+            sticker = (
+                self.social_for(BOT_ID).sticker(group, bubble=True)
+                if not voice
+                else None
+            )
             message = (
                 [{"type": "image", "data": {"file": sticker.resolve().as_uri()}}]
                 if sticker
                 else [{"type": "text", "data": {"text": text}}]
             )
+            if voice:
+                message = [{"type": "record", "data": {"file": voice["path"].as_uri()}}]
             try:
+                if voice and voice["credit"]:
+                    await asyncio.wait_for(
+                        bot.call_action(
+                            "send_group_msg",
+                            self_id=int(BOT_ID),
+                            group_id=int(group),
+                            message=[
+                                {"type": "text", "data": {"text": voice["credit"]}}
+                            ],
+                        ),
+                        timeout=10,
+                    )
+                    self.voice_for(BOT_ID).credited(group)
                 result = await asyncio.wait_for(
                     bot.call_action(
                         "send_group_msg",
@@ -168,8 +200,12 @@ class Main(Star):
                     timeout=10,
                 )
                 self.activities.receipt(group, "sent", result.get("message_id"))
+                if voice:
+                    self.voice_for(BOT_ID).receipt(group, "sent")
             except Exception:
                 self.activities.receipt(group, "uncertain")
+                if voice:
+                    self.voice_for(BOT_ID).receipt(group, "uncertain")
 
     async def check_group_membership(self):
         for _ in range(40):
@@ -258,6 +294,13 @@ class Main(Star):
                 message_id=message_id,
             )
         quick = self.activities.keyword(text) if allowed else None
+        if allowed and not control and not images and not passive:
+            voice = self.voice_for(bot).pick(group, text)
+            if voice:
+                event.set_extra("orangepi_voice", voice)
+                quick = ""
+            elif text in VOICE_COMMANDS:
+                quick = "刚说过啦，晚点再听；语音只在已开放的群里低频发送"
         if allowed and control and not owner_control:
             quick = "联网开关只接受主号私聊指令"
         query = query_from(text) if allowed and not control else None
@@ -335,6 +378,23 @@ class Main(Star):
                 await event.send(event.plain_result(reply))
             return
         quick = event.get_extra("orangepi_quick_reply")
+        voice = event.get_extra("orangepi_voice")
+        if voice:
+            event.should_call_llm(False)
+            event.stop_event()
+            controller = self.voice_for(str(event.get_self_id()))
+            group = str(event.get_group_id() or "")
+            try:
+                if voice["credit"]:
+                    await event.send(event.plain_result(voice["credit"]))
+                    controller.credited(group)
+                await event.send(
+                    event.chain_result([Record(file=voice["path"].as_uri())])
+                )
+                controller.receipt(group, "sent")
+            except Exception:
+                controller.receipt(group, "uncertain")
+            return
         if quick is not None:
             # The native whitelist has passed; send once and stop before the LLM.
             event.should_call_llm(False)

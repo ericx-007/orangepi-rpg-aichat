@@ -15,4 +15,5 @@ jobs:
       - run: python -m unittest discover -s tests -p test_policy.py -v
       - run: python -m unittest discover -s tests -p test_web_search.py -v
       - run: python -m unittest discover -s tests -p test_social.py -v
+      - run: python -m unittest discover -s tests -p test_voice.py -v
       - run: for script in board/*.sh; do bash -n "$script"; done

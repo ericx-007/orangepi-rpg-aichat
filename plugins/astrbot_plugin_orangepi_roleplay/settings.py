@@ -15,6 +15,7 @@ HEALTH_URL = str(config.get("health_url", "http://127.0.0.1:8000/health"))
 PASSIVE_ENABLED = config.get("enable_passive", False) is True
 VISION_ENABLED = config.get("enable_vision", False) is True
 STICKERS_ENABLED = config.get("enable_stickers", False) is True
+VOICE_ENABLED = config.get("enable_voice", False) is True
 if BOT_ID and (not BOT_ID.isdigit() or not OWNER.isdigit()):
     raise ValueError("bot_qq and owner_qq must be numeric QQ IDs")
 if any(not group.isdigit() for group in GROUPS):
