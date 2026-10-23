@@ -49,6 +49,11 @@ class ConfigurationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.build()
 
+    def test_vision_is_explicitly_enabled(self):
+        self.assertEqual(self.build()['provider'][0]['modalities'], ['text'])
+        self.deployment['enable_vision']=True
+        self.assertEqual(self.build()['provider'][0]['modalities'], ['text','image'])
+
 
 if __name__ == '__main__':
     unittest.main()

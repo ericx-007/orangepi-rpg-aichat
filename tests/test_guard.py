@@ -1,4 +1,4 @@
-import bootstrap  # Isolated synthetic identities and optional AstrBot source.
+import bootstrap
 """Use actual AstrBot/OneBot event objects to protect message authorization."""
 import asyncio
 import importlib.util
@@ -133,6 +133,27 @@ class GuardTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('https://example.com/article',response.completion_text)
         self.assertNotIn('fake.invalid',response.completion_text)
 
+    async def test_time_changes_leave_system_prefix_and_original_history_unchanged(self):
+        from astrbot.api.provider import ProviderRequest
+        from unittest.mock import patch
+        actual_datetime=module.datetime
+        stamps=iter([actual_datetime(2026,10,23,12,0),actual_datetime(2026,10,23,12,1)])
+        self.main.public='固定公开人格';self.main.private='固定私聊人格'
+        self.main.context=types.SimpleNamespace(get_using_provider=lambda **_:None)
+        requests=[]
+        history=[{'role':'user','content':'过去的问题'}]
+        for text in ['最近怎么样','给我个建议']:
+            event=await self.event(text=text)
+            event.set_extra('orangepi_roleplay_allowed',True)
+            req=ProviderRequest(prompt=text,contexts=history)
+            with patch.object(module,'datetime',types.SimpleNamespace(now=lambda _:next(stamps))):
+                await self.main.persona(event,req)
+            self.assertEqual(req.prompt,text)
+            requests.append(req)
+        self.assertEqual(requests[0].system_prompt,requests[1].system_prompt)
+        self.assertNotEqual(requests[0].contexts[-1],requests[1].contexts[-1])
+        self.assertEqual(history,[{'role':'user','content':'过去的问题'}])
+
     async def test_length_cutoff_keeps_complete_prefix_and_records_reason(self):
         from astrbot.core.provider.entities import LLMResponse
         event=await self.event()
@@ -171,5 +192,92 @@ class GuardTests(unittest.IsolatedAsyncioTestCase):
             raw_completion={'choices':[{'finish_reason':'length'}]})
         await self.main.sources(event,response)
         self.assertEqual(response.completion_text,'结论是十七个。\n来源：https://example.com/article')
+
+    async def test_image_only_uses_picture_question_and_prepared_payload(self):
+        from astrbot.api.message_components import Image
+        from astrbot.api.provider import ProviderRequest
+        from unittest.mock import patch
+        event=await self.event(text='')
+        event.message_obj.message.append(Image.fromBase64('dGVzdA=='))
+        self.main.model_state=lambda:{'status':'ready','busy':False,'modality':'text+image'}
+        self.assertTrue(self.main.check_guard(event))
+        self.assertEqual(event.message_str,'请描述这张图片。')
+        with patch.object(module,'prepare_image',AsyncMock(return_value='data:image/jpeg;base64,dGVzdA==')):
+            await self.main.guard(event)
+        self.main.public='小鲸鱼';self.main.private='private role'
+        self.main.context=types.SimpleNamespace(get_using_provider=lambda **_:None)
+        req=ProviderRequest(prompt=event.message_str,contexts=[{'role':'user','content':[{'type':'text','text':'old question'},{'type':'image_url','image_url':{'url':'old'}}]}])
+        await self.main.persona(event,req)
+        self.assertEqual(req.image_urls,['data:image/jpeg;base64,dGVzdA=='])
+        self.assertEqual(req.contexts[0]['content'],'old question')
+        self.assertEqual(req.prompt,'请描述这张图片。')
+
+    async def test_image_failure_stops_instead_of_hallucinating(self):
+        from astrbot.api.message_components import Image
+        event=await self.event()
+        event.message_obj.message.append(Image.fromBase64('not image'))
+        event.send=AsyncMock()
+        self.main.model_state=lambda:{'status':'ready','busy':False,'modality':'text+image'}
+        self.assertTrue(self.main.check_guard(event))
+        await self.main.guard(event)
+        self.assertTrue(event.is_stopped())
+        self.assertFalse(event.call_llm)
+        event.send.assert_awaited_once()
+
+    async def test_sticker_attaches_to_same_result_without_an_extra_send(self):
+        from astrbot.core.provider.entities import LLMResponse
+        from astrbot.core.message.message_event_result import MessageChain
+        from astrbot.api.message_components import Image
+        event=await self.event(text='今天过得挺好')
+        event.message_obj.group_id='100000003'
+        event.set_extra('orangepi_roleplay_allowed',True)
+        event.send=AsyncMock()
+        from PIL import Image as Picture
+        Picture.new('RGB',(8,8),'blue').save(self.main.data/'happy.gif')
+        self.main.social_for=lambda _:types.SimpleNamespace(sticker=lambda *a,**k:self.main.data/'happy.gif')
+        response=LLMResponse(role='assistant',result_chain=MessageChain().message('那不错嘛'),raw_completion={'choices':[{'finish_reason':'stop'}]})
+        await self.main.sources(event,response)
+        self.assertEqual(len(response.result_chain.chain),2)
+        self.assertIsInstance(response.result_chain.chain[1],Image)
+        event.send.assert_not_awaited()
+        from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
+        transport=types.SimpleNamespace(send_group_msg=AsyncMock())
+        await AiocqhttpMessageEvent.send_message(transport,response.result_chain,event=Event({'self_id':999800}),is_group=True,session_id='100000003')
+        transport.send_group_msg.assert_awaited_once()
+        outgoing=transport.send_group_msg.call_args.kwargs
+        self.assertEqual(outgoing['self_id'],999800)
+        self.assertEqual(outgoing['group_id'],100000003)
+        self.assertEqual([part['type'] for part in outgoing['message']],['text','image'])
+
+    async def test_sampled_nonmention_wakes_once_and_keeps_normal_limits(self):
+        from datetime import datetime,timezone
+        class FixedRandom:
+            def random(self):return 0
+        clock=lambda:datetime(2026,10,23,6,tzinfo=timezone.utc).timestamp()
+        social=module.Social(folder/'stickers',self.main.data/'social.json',clock=clock,rng=FixedRandom())
+        self.main.social_for=lambda _:social
+        event=await self.event(text='今天天气真不错啊')
+        event.message_obj.group_id='100000003'
+        self.assertTrue(self.main.check_guard(event))
+        self.assertTrue(event.is_at_or_wake_command)
+        self.assertTrue(event.get_extra('orangepi_passive'))
+        second=await self.event(text='今天天气真不错啊',mid=124)
+        second.message_obj.group_id='100000003'
+        self.assertFalse(self.main.check_guard(second))
+
+    async def test_disabled_vision_never_claims_to_read_an_image(self):
+        from astrbot.api.message_components import Image
+        from unittest.mock import patch
+        event=await self.event(text='这张图是什么')
+        event.message_obj.message.append(Image.fromBase64('dGVzdA=='))
+        event.send=AsyncMock()
+        self.main.model_state=lambda:{'status':'ready','busy':False,'modality':'text+image'}
+        with patch.object(module,'VISION_ENABLED',False):
+            self.assertTrue(self.main.check_guard(event))
+            await self.main.guard(event)
+        self.assertTrue(event.is_stopped())
+        self.assertFalse(event.call_llm)
+        event.send.assert_awaited_once()
+        self.assertIsNone(event.get_extra('orangepi_image'))
 
 if __name__=='__main__':unittest.main(verbosity=2)

@@ -39,7 +39,7 @@ def build_config(existing, deployment, access, hash_password):
         'provider_type': 'chat_completion', 'enable': True, 'key': ['local-placeholder'],
         'api_base': deployment['api_base'], 'timeout': int(deployment['request_timeout']), 'proxy': '', 'custom_headers': {}}]
     config['provider'] = [{'id': 'orangepi/local', 'provider_source_id': 'orangepi', 'model': 'local',
-        'enable': True, 'modalities': ['text'], 'max_context_tokens': 4096,
+        'enable': True, 'modalities': ['text', 'image'] if deployment.get('enable_vision', False) is True else ['text'], 'max_context_tokens': 4096,
         'custom_extra_body': {'max_tokens': int(deployment['max_tokens']), 'temperature': 0.6, 'top_p': 0.8,
                               'chat_template_kwargs': {'enable_thinking': False}}}]
     config['provider_settings'].update(enable=True, provider_pool=['orangepi/local'], streaming_response=False,
@@ -91,6 +91,7 @@ def main():
     shutil.copytree(ROOT / 'plugins/astrbot_plugin_orangepi_roleplay', plugin, dirs_exist_ok=True,
                     ignore=shutil.ignore_patterns('__pycache__', '*.pyc', 'settings.local.json'))
     settings = {key: deployment[key] for key in ['bot_qq', 'owner_qq', 'allowed_groups', 'platform_id', 'health_url']}
+    settings.update({key: deployment.get(key, False) is True for key in ['enable_vision', 'enable_passive', 'enable_stickers']})
     (plugin / 'settings.local.json').write_text(json.dumps(settings, indent=2), encoding='utf-8')
     activities = json.loads((plugin / 'activities.json').read_text(encoding='utf-8'))
     activities['bubbles']['enabled'] = bool(deployment.get('enable_bubbles', False))

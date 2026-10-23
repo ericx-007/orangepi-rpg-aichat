@@ -34,3 +34,8 @@ venv/
 .ruff_cache/
 .DS_Store
 Thumbs.db
+# User-supplied sticker assets
+plugins/**/stickers/*.gif
+plugins/**/stickers/*.png
+plugins/**/stickers/*.jpg
+plugins/**/stickers/*.webp

@@ -27,6 +27,8 @@ sha256: 03b74727a860a56338e042c4420bb3f04b2fec5734175f4cb9fa853daf52b7e8
 
 ## 编译源码
 
+识图使用同一模型仓库与revision的 `mmproj-F16.gguf`，918166080字节，SHA256为 `f70dc3509053962b0d0d3ee8a7eacebf5d60aa560cad78254ae8698516ae029f`。只对这组9B权重和投影器组合做过实测；其他模型需要各自匹配的投影器。
+
 `board/build-llama.sh` 固定上述 llama.cpp commit，校验归档 SHA256 为 `901a2a2b2eb389a08cae3fec3269914f5c03e8d39b1352db9a29cbd1886727f3`，只编译 CPU 后端。参考[官方构建说明](https://github.com/ggml-org/llama.cpp/blob/339f3242c761f16c27e5ffcde1d35dcc31933a55/docs/build.md)。
 
 Python依赖在 `board/requirements.txt`、`requirements-pc.txt` 和插件的 `requirements.txt` 中给出兼容范围。AstrBot 的完整依赖按其固定版本安装；这些范围不是完整的依赖锁文件。

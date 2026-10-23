@@ -1,8 +1,10 @@
 # 部署指南
 
-本指南部署当前文字角色机器人。开发板负责模型，Windows电脑负责QQ、人格策略和联网搜索。电脑需要保持运行并登录Windows；不能只插着开发板就让QQ链路独立工作。
+本指南部署角色机器人，默认文字，可选识图、表情包和免@接话。开发板负责模型，Windows电脑负责QQ、人格策略和联网搜索。电脑需要保持运行并登录Windows；不能只插着开发板就让QQ链路独立工作。
 
 示例目录为Windows上的 `D:\projects\orangepi-rpg-aichat` 和板上的 `/opt/orangepi-rpg-aichat`。按自己的磁盘修改Windows路径。仓库不含模型权重、QQ程序、账号密码或登录缓存。
+
+已有部署升级时，先备份本地配置和插件、停止对应服务，再更新板端app/engine和Windows插件。新功能开关及投影器要求见 [视觉与社交功能](vision-social.md)。保留原有settings.local.json、登录态和plugin_data，不要用示例配置覆盖真实配置。
 
 ## 1. 准备环境
 

@@ -2,5 +2,8 @@
   "bot_qq": "100000001",
   "owner_qq": "100000002",
   "allowed_groups": ["100000003", "100000004"],
-  "platform_id": "qq-local"
+  "platform_id": "qq-local",
+  "enable_passive": true,
+  "enable_vision": true,
+  "enable_stickers": true
 }

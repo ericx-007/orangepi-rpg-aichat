@@ -6,6 +6,9 @@ from pathlib import Path
 import queue
 import time
 import uuid
+import base64
+import binascii
+import os
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
@@ -41,16 +44,44 @@ app = FastAPI(title='Orange Pi 本地模型', lifespan=lifespan)
 
 class Message(BaseModel):
     role: Literal['system', 'user', 'assistant']
-    content: str = Field(min_length=1, max_length=16000)
+    content: str | list[dict] = Field(min_length=1, max_length=16000)
 
     @field_validator('content', mode='before')
     @classmethod
     def normalize_text_parts(cls, value):
         if isinstance(value, list):
-            if any(not isinstance(part, dict) or part.get('type') != 'text'
-                   or not isinstance(part.get('text'), str) for part in value):
-                raise ValueError('仅支持文字内容分段，不支持图片、音频或其他内容类型。')
-            return ''.join(part['text'] for part in value)
+            if not value or len(value) > 8:
+                raise ValueError('内容分段数量无效。')
+            images = 0
+            for part in value:
+                if not isinstance(part, dict):
+                    raise ValueError('内容分段必须为对象。')
+                if part.get('type') == 'text':
+                    if not isinstance(part.get('text'), str) or len(part['text']) > 16000:
+                        raise ValueError('文字内容过长或类型无效。')
+                elif part.get('type') == 'image_url':
+                    images += 1
+                    image = part.get('image_url')
+                    if not isinstance(image, dict):
+                        raise ValueError('图片内容格式无效。')
+                    url = image.get('url', '')
+                    if not isinstance(url, str) or len(url) > 2800000:
+                        raise ValueError('图片数据过大。')
+                    head, sep, data = url.partition(',')
+                    if not sep or head not in {'data:image/jpeg;base64', 'data:image/png;base64', 'data:image/webp;base64'}:
+                        raise ValueError('图片必须为内嵌 JPEG/PNG/WebP，不能提交远程网址。')
+                    try:
+                        decoded = base64.b64decode(data, validate=True)
+                    except (ValueError, binascii.Error) as exc:
+                        raise ValueError('图片编码无效。') from exc
+                    if not decoded or len(decoded) > 2000000:
+                        raise ValueError('图片数据为空或过大。')
+                else:
+                    raise ValueError('仅支持文字和图片内容。')
+            if images > 1:
+                raise ValueError('每条消息最多一张图片。')
+            if not images:
+                return ''.join(part['text'] for part in value)
         return value
 
 
@@ -78,7 +109,7 @@ def home():
 def health():
     memory = psutil.virtual_memory()
     return {'status': engine.status, 'error': engine.error, 'model': MODEL_ID,
-            'model_label': MODEL_LABEL, 'precision': MODEL_PRECISION, 'modality': 'text', 'thinking_supported': THINKING_SUPPORTED,
+            'model_label': MODEL_LABEL, 'precision': MODEL_PRECISION, 'modality': 'text+image' if os.environ.get('GGUF_MMPROJ_PATH') else 'text', 'thinking_supported': THINKING_SUPPORTED,
             'backend': BACKEND_LABEL, 'context_length': CONTEXT_LENGTH,
             'busy': engine.busy.locked(), 'load_seconds': engine.load_seconds,
             'npu_memory_after_loading': engine.npu_memory,
@@ -105,7 +136,14 @@ async def chat(body: ChatRequest):
         raise HTTPException(status_code=404, detail=f'当前模型名为 {MODEL_ID}；可用 local 跟随当前模型。')
     if body.chat_template_kwargs.enable_thinking and not THINKING_SUPPORTED:
         raise HTTPException(status_code=400, detail='当前模型没有可切换的思考模式。')
-    if sum(len(message.content) for message in body.messages) > 48000:
+    image_count = sum(sum(p.get('type') == 'image_url' for p in m.content) for m in body.messages if isinstance(m.content, list))
+    if image_count > 1:
+        raise HTTPException(status_code=400, detail='每次请求最多一张图片，请清除历史图片。')
+    if image_count and (MODEL_BACKEND != 'gguf' or not os.environ.get('GGUF_MMPROJ_PATH')):
+        raise HTTPException(status_code=400, detail='图片识别尚未启用。')
+    if any(isinstance(m.content, list) and m.role != 'user' for m in body.messages):
+        raise HTTPException(status_code=400, detail='图片仅可出现在用户消息中。')
+    if sum(len(m.content) if isinstance(m.content, str) else sum(len(p.get('text', '')) for p in m.content) for m in body.messages) > 48000:
         raise HTTPException(status_code=413, detail='对话内容过长，请清空历史后重试。')
     try:
         messages = [item.model_dump() for item in body.messages]

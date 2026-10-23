@@ -58,16 +58,20 @@ class ModelEngine:
                 template=Path(template_name).resolve()
                 assert template.is_relative_to(Path('/opt/orangepi-rpg-aichat/templates')) and template.is_file()
                 args.extend(['--chat-template-file',str(template)])
+            if projector_name := os.environ.get('GGUF_MMPROJ_PATH'):
+                projector = Path(projector_name).resolve()
+                assert projector.is_relative_to(Path('/opt/orangepi-rpg-aichat/models')) and projector.is_file(), 'Invalid vision projector'
+                args.extend(['--mmproj', str(projector), '--no-mmproj-offload', '--image-min-tokens', '64', '--image-max-tokens', '256'])
             with open('/opt/orangepi-rpg-aichat/logs/gguf-server.log','ab',buffering=0) as output:
                 self.process=subprocess.Popen(args,stdout=output,stderr=subprocess.STDOUT)
-            deadline=time.monotonic()+240
+            deadline=time.monotonic()+360
             while time.monotonic()<deadline:
                 if self.process.poll() is not None:raise RuntimeError('GGUF server exited; inspect gguf-server.log')
                 try:
                     if self._json('/health').get('status')=='ok':break
                 except (OSError,ValueError):pass
                 time.sleep(1)
-            else:raise TimeoutError('GGUF server did not become ready in240s')
+            else:raise TimeoutError('GGUF server did not become ready in360s')
             self.load_seconds=round(time.perf_counter()-started,3)
             self.status='ready'
             log.info('CPU GGUF ready after %.3fs',self.load_seconds)
@@ -97,8 +101,16 @@ class ModelEngine:
             raise RuntimeError(self.error)
         if not self.busy.acquire(blocking=False):raise BlockingIOError('开发板正在生成另一条回答，请稍后再试。')
         try:
-            template=self._json('/apply-template',{'messages':messages,'chat_template_kwargs':{'enable_thinking':thinking}})
+            has_image = any(isinstance(m.get('content'), list) and any(p.get('type') == 'image_url' for p in m['content']) for m in messages)
+            if has_image and not os.environ.get('GGUF_MMPROJ_PATH'):
+                raise ValueError('Vision projector is not configured')
+            # MTMD expands images into embeddings; ordinary text tokenization
+            # cannot count them. The native server validates that context.
+            template_messages = messages if not has_image else [dict(m, content=''.join(p.get('text', '') for p in m['content'])) if isinstance(m.get('content'), list) else m for m in messages]
+            template=self._json('/apply-template',{'messages':template_messages,'chat_template_kwargs':{'enable_thinking':thinking}})
             tokens=self._json('/tokenize',{'content':template['prompt'],'add_special':True,'parse_special':True})['tokens']
+            if has_image:
+                tokens.extend([0] * 256)
             if len(tokens)+max_tokens>CONTEXT_LENGTH:
                 raise ValueError(f'输入 {len(tokens)} tokens，加上输出预算 {max_tokens} 超过 {CONTEXT_LENGTH}。请清空历史或减少输出长度。')
             job=GenerationJob()

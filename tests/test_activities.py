@@ -1,4 +1,4 @@
-import bootstrap  # Isolated synthetic identities and optional AstrBot source.
+import bootstrap
 import importlib.util
 import json
 from datetime import datetime
@@ -78,6 +78,7 @@ class ActivitiesTests(unittest.IsolatedAsyncioTestCase):
             return {'message_id':123}
         main=module.Main.__new__(module.Main)
         main.activities=self.activity;main.last_chat={}
+        main.social_for=lambda _:types.SimpleNamespace(sticker=lambda *a,**k:None)
         main.context=types.SimpleNamespace(get_platform_inst=lambda _:types.SimpleNamespace(bot=types.SimpleNamespace(call_action=action)))
         main.policies={'100000001':module.MessagePolicy(clock=lambda:self.now)}
         main.model_state=lambda:{'status':'ready','busy':False}
